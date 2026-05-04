@@ -1,0 +1,58 @@
+\documentclass[12pt,a4paper]{ctexart}
+
+% ---- 页面布局 ----
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=3cm]{geometry}
+
+% ---- 数学与符号 ----
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{bm}
+
+% ---- 图表 ----
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ---- 引用与链接 ----
+\usepackage[colorlinks=true, citecolor=blue, linkcolor=blue, urlcolor=blue]{hyperref}
+
+% ---- 参考文献 ----
+\usepackage[sorting=none]{biblatex}
+\addbibresource{refs.bib}
+
+% ---- 行距 ----
+\usepackage{setspace}
+\onehalfspacing
+
+% ==================== 标题信息 ====================
+\title{论文标题}
+\author{作者}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% 摘要
+\input{sections/01-abstract.tex}
+
+% 引言
+\input{sections/02-introduction.tex}
+
+% 相关工作
+\input{sections/03-related-work.tex}
+
+% 方法
+\input{sections/04-method.tex}
+
+% 实验
+\input{sections/05-experiments.tex}
+
+% 结论
+\input{sections/06-conclusion.tex}
+
+% 参考文献
+\printbibliography
+
+\end{document}
