@@ -1,3 +1,170 @@
-\section{方法}
+\section{Method}
 
-方法描述。
+This chapter describes how the proposed DRS-DQN algorithm collaborates with the Robotic Mobile Fulfillment System (RMFS) model to achieve path planning. Section~3.1 introduces the DQN algorithm architecture tailored to the RMFS path planning problem. Section~3.2 elaborates on the reward shaping mechanism. Section~3.3 details the construction of reward shaping in dynamic scenarios. Section~3.4 presents the overall framework and training techniques of DRS-DQN.
+
+\subsection{RMFS Environment Modeling}
+
+In a Robotic Mobile Fulfillment System (RMFS), environment modeling serves as the foundation for AGV path planning, directly determining whether the robot can accurately acquire information about its own position, task objectives, and the surrounding environment. RMFS scenarios are characterized by regularly arranged shelving and highly structured operational workflows. To precisely describe the topology of the RMFS environment space while accounting for the convenience of map construction and the frequency of AGV path planning, this study adopts a grid map for formal modeling of the RMFS simulation environment. This approach partitions the space into uniform cells, each storing a value that represents regions such as shelves, picking stations, and traversable aisles, thereby achieving discrete representation of the continuous workspace. The resulting RMFS environment model not only captures the real warehouse layout but also provides a consistent and trainable state representation for deep reinforcement learning algorithms such as DQN.
+
+\subsection{DQN Algorithm for AGV Path Planning}
+
+In a DRL-based path planning model, three core elements constituting a Markov Decision Process (MDP) must be designed to suit the RMFS context: state, action, and reward. In addition, the neural network architecture must be appropriately specified.
+
+\subsubsection{State Space}
+
+In reinforcement learning, the state or observation encapsulates the internal and external information and logic of the environment. Within the RMFS, an operating AGV can access a wealth of global information, including the physical layout of the scene (i.e., the specific positions of picking stations, storage stations, and tracks), its own current position, the target position, and its operating status.
+
+To enable the deep neural network to effectively process and learn these environmental features, this study constructs four matrices of exactly the same dimensions as the RMFS model, each serving as one component of the system state. Each entry in these matrices takes only two possible values: 0 for false and 1 for true. The specific definitions of the four matrices are as follows.
+
+The Valid Location Matrix (VLM) represents all positions that the AGV can legally enter at the current moment. If the AGV can move into a given cell, the corresponding entry is set to 1; otherwise, it is set to 0. The determination rules are as follows. Track regions always permit AGV passage, so track cells are invariably set to 1. The value for a storage station cell depends on the AGV's loading state: when the AGV is empty, it is permitted to pass beneath the storage station, and the entry is set to 1; when the AGV is carrying a shelf (fully loaded), passage through the storage station is prohibited, and the entry is set to 0. A picking station, being a scarce resource, has its cell set to 1 only when it is the AGV's current task target; in all other cases, it is set to 0.
+
+The Forbidden Location Matrix (FLM) takes values that are the exact complement of the VLM, serving as supplementary information to indicate which positions are accessible or inaccessible. Specifically, a position with value 1 in the VLM has value 0 in the FLM, and vice versa. Introducing this pair of complementary matrices strengthens the feature representation of the current environment and provides more informative inputs to the neural network.
+
+The Current Location Matrix (CLM) is constructed by first initializing an all-zero matrix of the same size as the RMFS model, then setting only the cell corresponding to the AGV's current position to 1, leaving all other entries as 0.
+
+The Target Location Matrix (TLM) is constructed in the same manner as the CLM: starting from an all-zero matrix, only the cell representing the AGV's current task target position is set to 1.
+
+Through this four-matrix state space design, the system transforms the discrete warehouse operating environment with dynamic constraints into tensor data of dimensions $4 \times W \times H$ (where $W$ and $H$ denote the map width and height), which can be directly used as input features for a convolutional neural network.
+
+\subsubsection{Action Space}
+
+In the RMFS, shelves are arranged in a regular grid pattern and AGVs move primarily along straight aisles. Considering both algorithmic complexity and policy stability, this paper restricts AGV actions to four discrete directions — up, down, left, and right — and maintains a constant linear velocity. Since neural networks can only output numerical results, each action is assigned a numeric encoding. During system operation, whenever the AGV enters a new cell, it sends observation information to the Python program; the DQN algorithm returns an action to the AGV, which then checks whether the action is legal. A legal action is executed and the system continues running; an illegal action causes the system to terminate. The action space is $A = \{\text{Up}, \text{Down}, \text{Left}, \text{Right}\}$. The rules for determining action legality are introduced in the following section, together with the reward structure.
+
+\subsubsection{Reward Structure}
+
+The reward is defined based on the outcome of the action taken by the AGV as prescribed by the DQN algorithm, and it serves to evaluate the value of that action. Actions fall into three categories: illegal actions, correct actions, and normal actions, each associated with a distinct reward value.
+
+Illegal actions refer to actions that cannot be executed; performing such an action causes the RMFS model to halt. An action is classified as illegal in the following three cases: (1) the action drives the AGV out of the system boundary; (2) the action causes a loaded AGV to collide with a storage station; (3) the action leads the AGV into a picking station that is not its final destination. The reward for an illegal action is $-100$.
+
+A correct action is one after which the AGV reaches its final destination, for instance arriving at a designated storage station to retrieve or deposit a shelf, or reaching a designated picking station. The reward for a correct action is $+1$.
+
+A normal action is one that does not cause the RMFS model to terminate and after which the AGV has not yet reached its final destination. The reward for a normal action is $0$. Normal actions and correct actions are collectively referred to as legal actions.
+
+\begin{equation}
+r(s,a)=
+\begin{cases}
+-100, & \text{$a$ is illegal} \\
++1,   & \text{$s'$ is target} \\
+0,    & \text{otherwise}
+\end{cases}
+\end{equation}
+
+\subsubsection{Neural Network Architecture}
+
+The neural network (Deep Q Network) used in this study adopts a five-layer architecture, with three convolutional layers followed by two linear layers. Convolutional layers are well-suited for extracting features from image pixels and matrices and for identifying latent regularities therein. Each convolutional layer contains multiple neurons with learnable weights and biases; the number of neurons must be adjusted according to the dimensions of the input matrices, with larger matrices requiring more neurons and smaller matrices fewer. The linear layers, also known as fully connected layers, transform the dimensionality of the preceding layer's output, fit a large volume of input information according to linear relationships, and produce the final output. The number of neurons in a linear layer depends on the number of neurons in the preceding layer.
+
+\subsection{Reward Shaping}
+
+As the term suggests, reward shaping aims to accelerate and stabilize learning by modifying the reward directly obtained from the environment. It works by adjusting the reward of the Markov Decision Process (MDP) to guide the learning algorithm toward desired behavior. The general form of shaped reward is:
+
+\begin{equation}
+R' = R + F \label{eq:shaping-general}
+\end{equation}
+
+where $R: S \times A \times S \rightarrow \mathbb{R}$ is the expected reward function of the original MDP, and $F: S \times A \times S \rightarrow \mathbb{R}$ is the expected reward shaping function. Summing the two yields the modified expected reward function $R': S \times A \times S \rightarrow \mathbb{R}$. Under this formulation, the learning process operates on the modified reward $R'$ rather than the original reward $R$, and seeks a policy that maximizes the discounted sum of $R'$.
+
+A substantial body of successful cases has demonstrated that reward shaping is an effective tool for steering an agent toward desired behavior (Brys et al., 2014; Devlin et al., 2011; Dorigo and Colombetti, 1994; Efthymiadis and Kudenko, 2013; Mataric, 1994). However, if applied inappropriately, reward shaping can alter the optimal policy of the MDP and induce unintended behavior. A canonical example was provided by Randl\o{}v and Alstr\o{}m (1998): a bicycle was tasked with riding from point A to point B, and the agent received a reward whenever it moved toward B, with all other rewards set to zero. The agent learned a strategy of circling around point A rather than advancing toward the goal. This example raises a natural question: to what extent can the reward be adjusted without changing the optimal policy of the original problem? This condition is known as policy invariance.
+
+Ng et al.\ (1999) established how to adjust the reward while guaranteeing policy invariance. They introduced a potential function $\Phi_S: S \rightarrow \mathbb{R}$ that maps each state to a scalar value. Desirable states (e.g., those reached under the target policy) are assigned higher function values, and less desirable states are assigned lower values. The potential function draws inspiration from the physical concept of potential energy, i.e., the energy of an object in a given state relative to a reference state. Using this potential function, Ng et al.\ (1999) defined the potential-based reward shaping function $F: S \times A \times S \rightarrow \mathbb{R}$ as:
+
+\begin{equation}
+F(s_t, a_t, s_{t+1}) = \gamma \Phi_S(s_{t+1}) - \Phi_S(s_t) \label{eq:ng-shaping}
+\end{equation}
+
+where $\gamma$ is the discount factor and $\Phi_S$ denotes the potential function over states. Ng et al.\ (1999) proved that any policy that is optimal in the modified MDP $\langle S, A, T, \gamma, R+F \rangle$ is also optimal in the original MDP $\langle S, A, T, \gamma, R \rangle$, where $S$ is the state space, $A$ is the action space, $T$ is the state transition probability, $R$ is the original reward function, and $F$ is the reward shaping function. Notably, as long as $F$ takes the specific potential-based form given above, policy invariance holds regardless of the choice of $\Phi_S$.
+
+Wiewiora, Cottrell, and Charles (2003) extended the work of Ng et al.\ (1999) by proposing a potential function that depends on both state and action, denoted $\Phi_{S,A}: S \times A \rightarrow \mathbb{R}$. This new potential function provides more specific information to guide the agent toward desired behavior, since it becomes possible to assign values to state-action pairs rather than only to states. Building on $\Phi_{S,A}$, Wiewiora et al.\ (2003) proposed two potential-based reward shaping functions, termed look-ahead reward shaping and look-back reward shaping. The look-ahead variant resembles the method of Ng et al.\ (1999) in that it uses the potential of the next state-action pair $(s_{t+1}, a_{t+1})$; the look-back variant instead uses the potential of the previous state-action pair $(s_{t-1}, a_{t-1})$ in the reward shaping function $F: S \times A \times S \times A \rightarrow \mathbb{R}$. This study adopts the latter, defined as:
+
+\begin{equation}
+F(s_t, a_t, s_{t-1}, a_{t-1}) = \Phi_{S,A}(s_t, a_t) - \gamma^{-1} \Phi_{S,A}(s_{t-1}, a_{t-1}) \label{eq:look-back}
+\end{equation}
+
+In general, it is difficult to directly substitute Equation~\eqref{eq:look-back} into Equation~\eqref{eq:shaping-general}, because the former depends on the policy being followed. In other words, with this form of reward shaping function, one cannot simply construct a new MDP with modified reward $R+F$ and theoretically prove policy invariance. A notable exception occurs when the policy being followed is stationary (see Wiewiora et al.\ (2003) for the relevant theoretical proof). The reason is that, in expectation, the potential of the previous state-action pair is computable when the policy is fixed. Hence, under a stationary policy $\pi$, one can define $R' = R + F^{\pi}$ (where $F^{\pi}$ denotes the dependence on the stationary policy being followed) and policy invariance can be shown to hold.
+
+In this study, the deep Q-network is updated in every training iteration, which means the policy being followed is not stationary; consequently, policy invariance cannot be theoretically established. Nevertheless, subsequent empirical results demonstrate that the shaped DQN algorithm can sometimes outperform the teacher policy, suggesting that policy invariance may in fact hold, although no formal proof is currently available.
+
+This study adopts the look-back potential-based reward shaping method of Wiewiora et al.\ (2003) and defines the potential function $\Phi_{S,A}$ according to a teacher policy. A known heuristic algorithm is suggested to serve as the teacher policy to guide the learning of the DQN algorithm. Let $a^{\dagger}(s)$ denote the action recommended by the teacher policy in state $s$. The potential function $\Phi_{S,A}$ is defined as:
+
+\begin{equation}
+\Phi_{S,A}(s, a) = -k \, |a^{\dagger}(s) - a| \label{eq:potential}
+\end{equation}
+
+where $k \in \mathbb{R}^{+}$ is an arbitrarily chosen parameter that amplifies the guiding effect of the teacher policy. Thus, the greater the discrepancy between the action $a$ taken in state $s$ and the action $a^{\dagger}(s)$ recommended by the teacher, the lower the potential function value. Substituting this potential function into the look-back reward shaping function of Wiewiora et al.\ (2003) (Equation~\eqref{eq:look-back}) indirectly encourages the agent to take actions consistent with the teacher policy.
+
+At present, there is no evidence that the resulting policy converges to the optimal policy when a neural network is used to approximate the value function. Accordingly, prior work on potential-based reward shaping has concentrated primarily on tabular reinforcement learning. This study applies potential-based reward shaping to deep reinforcement learning; although the relevant theoretical guarantees cannot be derived, the empirical results indicate that policy invariance still holds in the deep RL setting.
+
+\subsection{Dynamic Potential-Based Reward Shaping}
+
+\subsubsection{Theoretical Foundation: From Static to Dynamic}
+
+Conventional potential-based reward shaping (PBRS) assumes that the potential function $\Phi(s)$ is static. In dynamic RMFS scenarios, however, the real-time movement of obstacles alters the optimal path topology. If a static A* heuristic distance is retained under these conditions, the guidance signal becomes ineffective or even misleading.
+
+To address this problem, this study draws on the dynamic potential-based reward shaping (Dynamic PBRS) theory proposed by Devlin and Kudenko (2012). They proved that the conventional PBRS formulation can be relaxed: as long as the shaped reward $F$ follows a specific differential form in which the potential function $\Phi(s, t)$ varies dynamically with time $t$, the optimal policy remains unchanged. The general form of Dynamic PBRS is defined as:
+
+\begin{equation}
+F(s, t, s', t') = \gamma \Phi(s', t') - \Phi(s, t) \label{eq:dynamic-pbrs}
+\end{equation}
+
+where $s$ and $s'$ are states, $t$ and $t'$ are the corresponding time steps, and $\gamma$ is the discount factor. This theory provides the theoretical guarantee for incorporating D* Lite dynamic planning into deep reinforcement learning.
+
+\subsubsection{Potential Function Based on D* Lite Distance Field}
+
+Unlike A*, D* Lite maintains a $g(s)$ value and an $\textit{rhs}(s)$ value for each node to identify the impact of environmental changes on the path. The $g(s)$ value represents the path cost from the current node $s$ to the goal, and changes only when the algorithm explicitly updates the node. The $\textit{rhs}(s)$ value is the current best estimate computed from the $g(s')$ values of all neighboring nodes $s'$ plus the transition cost $c(s, s')$ between them. It reflects the actual potential distance from node $s$ to the goal after accounting for the current environment, for instance whether new obstacles have blocked the path.
+
+The core advantage of D* Lite lies in its incremental replanning capability. When edge costs in the environment change, for example upon detecting a dynamic obstacle, D* Lite does not restart the search from scratch. Instead, it leverages the priority queue preserved from the previous search and updates only those inconsistent nodes for which $g(s) \neq \textit{rhs}(s)$. This allows the algorithm to repair only the affected local region rather than recomputing the global path.
+
+Furthermore, D* Lite typically performs a backward search from the goal toward the starting point. This means the algorithm maintains a goal-centered distance field. Regardless of the AGV's current position, D* Lite can provide a real-time estimate of the true cost from that position to the goal.
+
+Unlike conventional approaches that use teacher actions for guidance, this study utilizes the distance field maintained by the D* Lite algorithm as the source of potential. D* Lite is an incremental heuristic search algorithm specifically designed for rapid replanning by reusing prior search results when the environment undergoes partial changes.
+
+We define the dynamic potential function $\Phi(s, t)$ at time $t$ as the negative correlation of the path cost computed by D* Lite:
+
+\begin{equation}
+\Phi(s, t) = -\omega(\eta) \cdot g_{D^{*}}(s, t) \label{eq:potential-dynamic}
+\end{equation}
+
+where $g_{D^{*}}(s, t)$ denotes the actual path cost (i.e., the $\textit{rhs}$ value) from the current state $s$ to the goal as maintained by the D* Lite algorithm at time $t$. When dynamic obstacles appear, D* Lite updates the $g$ values of only the affected nodes, thereby correcting the distance field in real time at low computational cost. The term $\omega(\eta)$ is a potential weight coefficient that varies dynamically with the training progress, and $\eta$ denotes the current training episode.
+
+Substituting this potential function into the shaping formula (Equation~\eqref{eq:dynamic-pbrs}) yields the final shaped reward $F_t$ received by the agent:
+
+\begin{equation}
+F_t = \omega(\eta) \cdot \bigl[\, g_{D^{*}}(s, t) - \gamma \cdot g_{D^{*}}(s', t') \,\bigr] \label{eq:shaped-reward}
+\end{equation}
+
+The physical interpretation of this formulation is that the agent receives a positive potential-difference reward when it moves toward a region with a smaller $g$ value, i.e., closer to the goal, thereby forming a dense gradient-based guidance reward.
+
+\subsubsection{Deferred Computation of Dynamic Potential and Prioritized Experience Replay}
+
+In a dynamic environment where conditions vary over time, the dynamic potential function at time $t$ is $\Phi(s, t)$. The conventional practice is to store the shaped reward $R' = R + F$ directly into the experience replay buffer. Owing to the offline nature of DQN, however, when an old sample is later retrieved for training, its stored potential-based guidance may no longer be consistent with the current environment state, for instance because dynamic obstacles have since moved. In such cases, the potential-based guidance computed at storage time diverges from the current environment: rather than providing correct heuristic guidance, it delivers an erroneous reward gradient that misleads the neural network update.
+
+To resolve the problem of outdated experience in dynamic environments, we consider the reward relabeling method from Hindsight Experience Replay (HER). The replay buffer stores only the state $s$, action $a$, next state $s'$, and the original environmental reward $r$. When the network performs a gradient descent step, the current D* Lite map is queried to compute $\Phi(s, t)$ and $\Phi(s', t')$, from which $F$ is calculated and added to the target Q-value. This deferred computation mechanism ensures that, regardless of how long a sample has been stored, it always reflects the most recent and accurate obstacle-avoidance topology guidance at the moment it is used for updating the network parameters.
+
+When computing the loss function, each sample is weighted by its importance sampling weight. In standard DQN, samples are drawn uniformly at random, and the distribution of samples observed by the network matches the true distribution of the environment. With Prioritized Experience Replay (PER), however, samples with high priority (i.e., large TD-error) are artificially drawn more frequently. For a sample whose selection probability $P(i)$ is low, a proportionally larger weight is assigned so that the loss function can be properly evaluated:
+
+\begin{equation}
+w_i = \left( \frac{1}{N} \cdot \frac{1}{P(i)} \right)^{\beta}
+\end{equation}
+
+\subsection{Overall Architecture of the DRS-DQN Algorithm}
+
+\begin{figure}[htbp]
+\centering
+\caption{Flowchart of the DRS-DQN algorithm.}
+\label{fig:drs-dqn-flowchart}
+\end{figure}
+
+A neural network can learn to fit high-dimensional inputs through iterative training, but several hyperparameters influence the training process and may even determine whether the network converges. Among these, the learning rate and the exploration rate are the most critical; they exert a particularly strong influence on the training process and are discussed in detail below.
+
+\textbf{Learning rate.} The learning rate, together with the loss value, determines the magnitude of changes to the neural network parameters. Most reinforcement learning algorithms, including DQN, employ gradient descent to optimize network weights, relying on two quantities: the learning rate and the gradient. The iterative weight update rule is given by Equation~\eqref{eq:weight-update}, where $\theta_j$ denotes the weight and $\frac{\Delta J(\theta)}{\Delta \theta_j}$ denotes the gradient. A learning rate that is too small slows the learning process, whereas a learning rate that is too large may accelerate training but increases the risk of divergence or failure to converge. The gradient is computed from the cost function and the loss value. The loss is defined in Equation~\eqref{eq:loss}, where $r_t + \gamma \cdot \max_{a_{t+1}} Q(s_{t+1}, a_{t+1})$ represents the network's prediction of the current state value based on the actual reward $r_t$ and the expected future reward $\max_{a_{t+1}} Q(s_{t+1}, a_{t+1})$, while $Q(s_t, a_t)$ represents the network's full prediction of the current state value. The difference between these two terms captures the discrepancy between the reward-based state value and the full predicted state value, which constitutes the loss.
+
+\begin{equation}
+\theta_j = \theta_j - \textit{lr} \cdot \frac{\Delta J(\theta)}{\Delta \theta_j} \label{eq:weight-update}
+\end{equation}
+
+\begin{equation}
+\textit{loss} = r_t + \gamma \cdot \max_{a_{t+1}} Q(s_{t+1}, a_{t+1}) - Q(s_t, a_t) \label{eq:loss}
+\end{equation}
+
+\textbf{Exploration rate.} The exploration rate governs the probability of using the neural network for decision-making and determines when to stop relying on the heuristic algorithm for exploration; once exploration ceases, all decisions are made exclusively by the neural network. A higher exploration rate corresponds to a higher probability of using the neural network for decisions, while $1 - \text{exploration rate}$ represents the probability of using the D* Lite algorithm for decisions. For instance, when the exploration rate is 0.8, the neural network makes decisions with 80\% probability and the D* Lite algorithm with 20\% probability. The training objective is for the neural network to converge to a policy that makes correct decisions based on input observations. Accordingly, the D* Lite algorithm is invoked more frequently in early training, and its usage is gradually reduced as training progresses. It is critical that reliance on the D* Lite algorithm be terminated sufficiently early so that the neural network is eventually responsible for all decisions, which is necessary for convergence. The exploration rate schedule is as follows, where the horizontal axis denotes the training episode (the total number of episodes varies with the scale of the RMFS). During the first 30\% of episodes, the exploration rate is fixed at 0.8. From 30\% to 80\% of episodes, the exploration rate linearly increases from 0.8 to 1.0. Beyond 80\% of episodes, the exploration rate is fixed at 1.0, at which point the D* Lite algorithm no longer participates in the decision-making process and all actions are determined by the neural network.
+
+\textbf{Termination condition.} The termination condition defines when the training process concludes. In this study, training does not terminate after a fixed number of episodes; instead, it terminates when the neural network achieves a prescribed number of consecutive correct decisions. Once this threshold is reached, the training process ends. The threshold is adjusted according to the scale and complexity of the RMFS to ensure that the neural network can fully learn and achieve convergence.

@@ -1,3 +1,20 @@
-\section{引言}
+\section{Introduction}\label{sec1}
 
-引言内容。
+Currently, the domestic logistics industry in China is experiencing rapid development. As a pivotal link, warehouse logistics is undergoing a dual transformation characterized by massive scale expansion and profound technological innovation. In terms of scale, the total area of general warehousing in China climbed to approximately 1 billion square meters in 2025, representing a year-on-year increase of 0.30\%. With the number of warehouse parks reaching 40,750, the industry demonstrates a vigorous and sustained growth trend.
+
+In the context of the rapid advancement of intelligent manufacturing and smart logistics, intelligent transformation has emerged as the core trajectory for modern warehousing. Numerous enterprises are actively deploying advanced technical equipment to enhance operational efficiency and management precision. Automated Guided Vehicles (AGVs), as quintessential representatives of this intelligent shift, are widely utilized in smart warehouses due to their superior automation and intelligent capabilities. AGV systems not only substitute for high-intensity, high-risk manual labor but also enable material tracking and optimized scheduling through integration with high-level control systems. 
+
+However, as the scale of AGV applications expands, the operating environment becomes increasingly complex. In dynamic industrial scenarios, AGVs must navigate among fixed shelves and equipment while avoiding randomly appearing pedestrians, forklifts, and other moving AGVs. The efficiency and adaptability of their path planning directly determine the overall system performance. Therefore, finding a collision-free, short-distance, and low-energy path for AGVs in complex dynamic environments has become a core research topic in the field of mobile robotics.
+
+Traditional AGV path planning relies on classic algorithms such as A*, Dijkstra, and RRT. However, as warehouse logistics upgrades toward "intelligence, dynamism, and scale," the limitations of these traditional methods become apparent: they exhibit poor adaptability to dynamic environments, depend heavily on static pre-set maps, and suffer from high decision latency when environments change. Furthermore, their multi-AGV coordination capabilities are insufficient; in multi-AGV scenarios, graph search algorithms face exponential scheduling complexity, while the randomness of sampling algorithms often leads to congestion and poor synergy.
+
+Recently, Deep Reinforcement Learning (DRL) has provided a promising direction for AGV path planning by enabling agents to learn autonomously through interaction with the environment. DRL does not require a pre-defined environment model and can adapt to dynamic changes by fitting complex features via neural networks. For example, DQN addresses high-dimensional state space issues through experience replay, while PPO enhances training stability through policy clipping.
+
+To address the challenges of poor adaptability in intelligent warehouse AGV path planning, this study proposes the **DRS-DQN (D* Lite Reward Shaping-DQN)** algorithm—a single-AGV path planning framework that integrates D* Lite heuristic guidance with DRL. The core contributions are as follows:
+\begin{enumerate}
+    \item We introduce back-tracking reward shaping based on potential functions, which effectively solves the problems of sparse rewards and slow convergence in DRL training without altering the optimal policy.
+    \item We propose the DRS-DQN algorithm, which incorporates D* Lite heuristic information into the DQN framework. We design a four-matrix state space, a three-category action reward structure, and a four-layer neural network to achieve efficient path planning.
+    \item We introduce a dynamic task mechanism and multi-layout training strategies to enhance generalization and robustness. Experiments in various RMFS simulation environments demonstrate stable convergence and a 100\% task success rate.
+\end{enumerate}
+
+The remainder of this paper is organized as follows: Section 2 reviews the related work; Section 3 details the methodology and framework of the DRS-DQN algorithm; Section 4 presents the experimental setup and analyzes the results; and Section 5 concludes the paper and discusses future research directions.

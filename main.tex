@@ -1,58 +1,54 @@
-\documentclass[12pt,a4paper]{ctexart}
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}
 
-% ---- 页面布局 ----
-\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=3cm]{geometry}
-
-% ---- 数学与符号 ----
-\usepackage{amsmath, amssymb, amsthm}
-\usepackage{bm}
-
-% ---- 图表 ----
 \usepackage{graphicx}
-\usepackage{float}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[title]{appendix}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{manyfoot}
 \usepackage{booktabs}
-\usepackage{caption}
-\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xeCJK}
 
-% ---- 引用与链接 ----
-\usepackage[colorlinks=true, citecolor=blue, linkcolor=blue, urlcolor=blue]{hyperref}
+\setCJKmainfont{FandolSong-Regular}
+\setCJKsansfont{FandolHei-Regular}
+\setCJKmonofont{FandolFang-Regular}
 
-% ---- 参考文献 ----
-\usepackage[sorting=none]{biblatex}
-\addbibresource{refs.bib}
+\theoremstyle{thmstyleone}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
 
-% ---- 行距 ----
-\usepackage{setspace}
-\onehalfspacing
+\theoremstyle{thmstyletwo}
+\newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
 
-% ==================== 标题信息 ====================
-\title{论文标题}
-\author{作者}
-\date{\today}
+\theoremstyle{thmstylethree}
+\newtheorem{definition}{Definition}
+
+\raggedbottom
 
 \begin{document}
+\title[Path Planning for AGV in RMFS based on DRL]{Research on AGV Path Planning Based on Deep Reinforcement Learning in RMFS Scenarios}
+
+\author*[1]{\fnm{Bao-Qi} \sur{Sun}}\email{sunbaoqi@email.com}
+\author[1]{\fnm{Ke-Ming} \sur{Wang}}\email{wangkeming@email.com}
+
+\affil[1]{\orgdiv{School of Computer Science and Artificial Intelligence}, \orgname{Southwest Jiaotong University}, \orgaddress{\city{Chengdu}, \postcode{610036}, \state{Sichuan}, \country{China}}}
+
+\input{sections/01-abstract.tex}
 
 \maketitle
 
-% 摘要
-\input{sections/01-abstract.tex}
-
-% 引言
 \input{sections/02-introduction.tex}
-
-% 相关工作
 \input{sections/03-related-work.tex}
-
-% 方法
 \input{sections/04-method.tex}
-
-% 实验
 \input{sections/05-experiments.tex}
-
-% 结论
 \input{sections/06-conclusion.tex}
-
-% 参考文献
-\printbibliography
 
 \end{document}
